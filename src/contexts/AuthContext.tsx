@@ -89,8 +89,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // Store user profile in the profiles table if signup was successful
       if (data.user) {
         try {
+          const nameParts = name.split(' ');
+          const firstName = nameParts[0];
+          const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+          
           const { error: profileError } = await supabase.from('profiles').insert([
-            { id: data.user.id, name, email }
+            { 
+              id: data.user.id,
+              username: email.split('@')[0], // Simple username creation
+              first_name: firstName,
+              last_name: lastName
+            }
           ]);
           
           if (profileError) {
