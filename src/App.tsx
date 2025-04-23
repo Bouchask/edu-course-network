@@ -9,6 +9,8 @@ import NotFound from "./pages/NotFound";
 import Courses from "./pages/Courses";
 import CourseDetail from "./pages/CourseDetail";
 import About from "./pages/About";
+import Blog from "./pages/Blog";
+import FAQ from "./pages/FAQ";
 import Dashboard from "./pages/Dashboard";
 import AdminCourses from "./pages/dashboard/Courses";
 import CreateCourse from "./pages/dashboard/CreateCourse";
@@ -29,6 +31,8 @@ const App = () => (
           <Route path="/courses" element={<Courses />} />
           <Route path="/courses/:courseId" element={<CourseDetail />} />
           <Route path="/about" element={<About />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/faq" element={<FAQ />} />
           
           {/* Admin Dashboard Routes */}
           <Route path="/dashboard" element={<Dashboard />} />
