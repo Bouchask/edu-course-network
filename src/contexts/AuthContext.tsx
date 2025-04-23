@@ -70,6 +70,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log("Attempting signup with:", { email, name });
       
+      // Create unique username from email
+      const username = email.split('@')[0];
+      
+      // Parse name into first name and last name
+      const nameParts = name.split(' ');
+      const firstName = nameParts[0];
+      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+      
       // Step 1: Sign up the user with Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -77,6 +85,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         options: {
           data: {
             name,
+            first_name: firstName, 
+            last_name: lastName,
+            username: username
           },
         },
       });
@@ -87,35 +98,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { error, data: null };
       }
       
-      // Step 2: Insert profile data only if signup was successful and we have a user
+      // Step 2: Create profile entry - separate from auth flow to avoid blocking signup
       if (data.user) {
-        try {
-          const nameParts = name.split(' ');
-          const firstName = nameParts[0];
-          const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
-          
-          console.log("Creating profile for user:", data.user.id);
-          
-          // Use upsert instead of insert to handle potential conflicts
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: data.user.id,
-              username: email.split('@')[0], 
-              first_name: firstName,
-              last_name: lastName
-            }, { onConflict: 'id' });
-          
-          if (profileError) {
-            console.error('Profile creation error:', profileError);
-            toast.error("Compte créé mais impossible de sauvegarder le profil");
-            // Continue with authentication despite profile creation error
-          } else {
-            console.log("Profile created successfully");
-          }
-        } catch (profileErr) {
-          console.error('Profile insert error:', profileErr);
-        }
+        // We'll use a separate function to create the profile to avoid blocking the auth flow
+        createUserProfile(data.user.id, username, firstName, lastName);
       }
       
       toast.success("Compte créé avec succès! Vérifiez votre email pour confirmer.");
@@ -124,6 +110,46 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error('Unexpected signup error:', error);
       toast.error("Une erreur est survenue lors de la création du compte");
       return { error, data: null };
+    }
+  };
+  
+  // Separate function to create user profile
+  const createUserProfile = async (userId: string, username: string, firstName: string, lastName: string) => {
+    try {
+      console.log("Creating profile for user:", userId);
+      
+      // Try up to 3 times with delays between attempts
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        const { error } = await supabase
+          .from('profiles')
+          .upsert({
+            id: userId,
+            username,
+            first_name: firstName,
+            last_name: lastName
+          }, { 
+            onConflict: 'id',
+            ignoreDuplicates: false // update the row if it already exists
+          });
+        
+        if (!error) {
+          console.log("Profile created successfully on attempt", attempt);
+          return;
+        }
+        
+        console.error(`Profile creation attempt ${attempt} failed:`, error);
+        
+        if (attempt < 3) {
+          // Wait before retrying (exponential backoff)
+          const delay = attempt * 1000;
+          console.log(`Retrying in ${delay/1000} seconds...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          toast.error("Compte créé mais impossible de sauvegarder le profil");
+        }
+      }
+    } catch (error) {
+      console.error('Profile creation error:', error);
     }
   };
 
