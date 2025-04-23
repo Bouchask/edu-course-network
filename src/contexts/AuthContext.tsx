@@ -93,14 +93,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const firstName = nameParts[0];
           const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
           
-          const { error: profileError } = await supabase.from('profiles').insert([
-            { 
-              id: data.user.id,
-              username: email.split('@')[0], // Simple username creation
-              first_name: firstName,
-              last_name: lastName
-            }
-          ]);
+          const { error: profileError } = await supabase.from('profiles').insert({
+            id: data.user.id,
+            username: email.split('@')[0], // Simple username creation
+            first_name: firstName,
+            last_name: lastName
+          });
           
           if (profileError) {
             console.error('Profile creation error:', profileError);
