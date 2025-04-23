@@ -79,20 +79,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       
       if (error) {
-        toast.error(error.message);
+        toast.error(`Erreur d'inscription: ${error.message}`);
+        console.error('Signup error:', error);
         return { error, data: null };
       }
       
-      // Store user profile in the profiles table
+      // Store user profile in the profiles table if signup was successful
       if (data.user) {
-        await supabase.from('profiles').insert([
-          { id: data.user.id, name, email }
-        ]);
+        try {
+          const { error: profileError } = await supabase.from('profiles').insert([
+            { id: data.user.id, name, email }
+          ]);
+          
+          if (profileError) {
+            console.error('Profile creation error:', profileError);
+            toast.error("Compte créé mais impossible de sauvegarder le profil");
+          }
+        } catch (profileErr) {
+          console.error('Profile insert error:', profileErr);
+        }
       }
       
       toast.success("Compte créé avec succès! Vérifiez votre email pour confirmer.");
       return { data, error: null };
     } catch (error) {
+      console.error('Unexpected signup error:', error);
       toast.error("Une erreur est survenue lors de la création du compte");
       return { error, data: null };
     }
