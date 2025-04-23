@@ -1,9 +1,13 @@
 
 import { Link } from "react-router-dom";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { LayoutDashboard, BookOpen, Settings, Plus } from "lucide-react";
+import { LayoutDashboard, BookOpen, Settings, Plus, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
+  const { user, signOut } = useAuth();
+
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-screen w-full">
@@ -45,6 +49,12 @@ const Dashboard = () => {
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton onClick={signOut}>
+                      <LogOut />
+                      <span>Déconnexion</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -53,7 +63,7 @@ const Dashboard = () => {
         <div className="flex-1 p-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Manage your courses and platform settings</p>
+            <p className="text-muted-foreground">Bienvenue, {user?.user_metadata?.name || user?.email}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <DashboardCard 
