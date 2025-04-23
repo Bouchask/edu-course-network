@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
 import { toast } from "sonner";
 
@@ -70,6 +70,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       console.log("Attempting signup with:", { email, name });
       
+      // Step 1: Sign up the user with Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -86,23 +87,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { error, data: null };
       }
       
-      // Store user profile in the profiles table if signup was successful
+      // Step 2: Insert profile data only if signup was successful and we have a user
       if (data.user) {
         try {
           const nameParts = name.split(' ');
           const firstName = nameParts[0];
           const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
           
-          const { error: profileError } = await supabase.from('profiles').insert({
-            id: data.user.id,
-            username: email.split('@')[0], // Simple username creation
-            first_name: firstName,
-            last_name: lastName
-          });
+          console.log("Creating profile for user:", data.user.id);
+          
+          // Use upsert instead of insert to handle potential conflicts
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: data.user.id,
+              username: email.split('@')[0], 
+              first_name: firstName,
+              last_name: lastName
+            }, { onConflict: 'id' });
           
           if (profileError) {
             console.error('Profile creation error:', profileError);
             toast.error("Compte créé mais impossible de sauvegarder le profil");
+            // Continue with authentication despite profile creation error
+          } else {
+            console.log("Profile created successfully");
           }
         } catch (profileErr) {
           console.error('Profile insert error:', profileErr);
