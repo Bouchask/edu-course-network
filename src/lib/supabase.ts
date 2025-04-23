@@ -1,13 +1,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Pour le développement, on utilise des valeurs par défaut
-// Dans un environnement de production, ces valeurs devraient être fournies par des variables d'environnement
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project-id.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
+// Configuration du client Supabase avec les valeurs de votre projet
+const supabaseUrl = 'https://mhvjahkowemkimnagwvv.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1odmphZmtvd2Vta2ltbmFnd3Z2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTM0NzA2MjMsImV4cCI6MjAyOTA0NjYyM30.GiwyXp6hd6MCmZQgznMsKwpZzeF3dB7dUVDgIT6m-sM';
 
-if (supabaseUrl === 'https://your-project-id.supabase.co' || supabaseAnonKey === 'your-anon-key') {
-  console.warn('⚠️ Vous utilisez des valeurs par défaut pour Supabase. Pour connecter votre application à votre projet Supabase, remplacez ces valeurs par vos URL et clé réelles.');
-}
-
+// Création du client Supabase
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
