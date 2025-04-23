@@ -16,6 +16,9 @@ import AdminCourses from "./pages/dashboard/Courses";
 import CreateCourse from "./pages/dashboard/CreateCourse";
 import EditCourse from "./pages/dashboard/EditCourse";
 import Settings from "./pages/dashboard/Settings";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +36,9 @@ const App = () => (
           <Route path="/about" element={<About />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/faq" element={<FAQ />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           
           {/* Admin Dashboard Routes */}
           <Route path="/dashboard" element={<Dashboard />} />
