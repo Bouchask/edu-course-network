@@ -97,18 +97,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error('Signup error:', error);
         return { error, data: null };
       }
+
+      console.log("Signup successful, user data:", data.user);
       
       // Step 2: Create profile entry - separate from auth flow to avoid blocking signup
       if (data.user) {
-        // Attempt to create profile immediately and also schedule a delayed retry
-        createUserProfile(data.user.id, username, firstName, lastName);
+        try {
+          console.log("Creating initial profile for user:", data.user.id);
+          const { error: profileError } = await supabase.from('profiles').upsert({
+            id: data.user.id,
+            username,
+            first_name: firstName,
+            last_name: lastName
+          });
+          
+          if (profileError) {
+            console.error("Initial profile creation error:", profileError);
+            // Don't block signup process, we'll retry later
+          } else {
+            console.log("Profile created successfully on first attempt");
+          }
+        } catch (profileErr) {
+          console.error("Profile creation exception:", profileErr);
+        }
         
-        // Also schedule a delayed retry in case the first attempt fails due to timing issues
-        setTimeout(() => {
-          // Only retry if the user exists but still needs a profile
-          console.log("Scheduling delayed profile creation check");
-          checkAndCreateProfile(data.user?.id, username, firstName, lastName);
-        }, 2000);
+        // Schedule additional attempts with exponential backoff
+        setTimeout(() => retryProfileCreation(data.user!.id, username, firstName, lastName, 1), 1000);
       }
       
       toast.success("Compte créé avec succès! Vérifiez votre email pour confirmer.");
@@ -120,71 +134,50 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
   
-  // Check if profile exists and create if missing
-  const checkAndCreateProfile = async (userId?: string, username?: string, firstName?: string, lastName?: string) => {
-    if (!userId) return;
+  // Retry profile creation with exponential backoff
+  const retryProfileCreation = async (userId: string, username: string, firstName: string, lastName: string, attempt: number) => {
+    if (attempt > 5) return; // Max 5 attempts
     
     try {
-      console.log("Checking if profile exists for:", userId);
-      const { data, error } = await supabase
+      console.log(`Profile creation retry attempt ${attempt} for user ${userId}`);
+      
+      // First check if profile already exists
+      const { data: existingProfile } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
         
-      if (error || !data) {
-        console.log("Profile doesn't exist, creating now...");
-        createUserProfile(userId, username || '', firstName || '', lastName || '');
+      if (existingProfile) {
+        console.log("Profile already exists, no need to create:", existingProfile);
+        return;
+      }
+      
+      // Create profile if it doesn't exist
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          username,
+          first_name: firstName,
+          last_name: lastName
+        });
+      
+      if (profileError) {
+        console.error(`Profile creation attempt ${attempt} failed:`, profileError);
+        // Calculate next retry delay with exponential backoff
+        const nextDelay = Math.min(1000 * Math.pow(2, attempt), 30000); // Max 30 seconds
+        console.log(`Retry scheduled in ${nextDelay/1000} seconds...`);
+        setTimeout(() => retryProfileCreation(userId, username, firstName, lastName, attempt + 1), nextDelay);
       } else {
-        console.log("Profile already exists:", data);
+        console.log(`Profile created successfully on retry attempt ${attempt}`);
       }
     } catch (err) {
-      console.error("Error checking profile:", err);
-    }
-  };
-  
-  // Separate function to create user profile
-  const createUserProfile = async (userId: string, username: string, firstName: string, lastName: string) => {
-    try {
-      console.log("Creating profile for user:", userId);
+      console.error(`Error in retry attempt ${attempt}:`, err);
       
-      // Try up to 3 times with delays between attempts
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        console.log(`Profile creation attempt ${attempt} for user ${userId}`);
-        
-        const { error } = await supabase
-          .from('profiles')
-          .upsert(
-            {
-              id: userId,
-              username,
-              first_name: firstName,
-              last_name: lastName
-            },
-            { 
-              onConflict: 'id',
-              ignoreDuplicates: false // update the row if it already exists
-            }
-          );
-        
-        if (!error) {
-          console.log("Profile created successfully on attempt", attempt);
-          return;
-        }
-        
-        console.error(`Profile creation attempt ${attempt} failed:`, error);
-        
-        if (attempt < 3) {
-          // Wait before retrying (exponential backoff)
-          const delay = attempt * 1000;
-          console.log(`Retrying in ${delay/1000} seconds...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        } else {
-          toast.error("Compte créé mais impossible de sauvegarder le profil");
-        }
-      }
-    } catch (error) {
-      console.error('Profile creation error:', error);
+      // Still retry despite errors
+      const nextDelay = Math.min(1000 * Math.pow(2, attempt), 30000);
+      setTimeout(() => retryProfileCreation(userId, username, firstName, lastName, attempt + 1), nextDelay);
     }
   };
 

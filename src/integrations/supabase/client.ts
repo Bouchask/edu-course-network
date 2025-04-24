@@ -13,7 +13,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    storage: localStorage,  // explicitly use localStorage
+    storage: typeof window !== 'undefined' ? localStorage : undefined, // Check if window is defined first
     storageKey: 'supabase-auth',  // add a specific storage key
     detectSessionInUrl: true,  // detect session from URL
   }
