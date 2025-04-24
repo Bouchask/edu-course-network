@@ -78,13 +78,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const firstName = nameParts[0];
       const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
       
-      // Step 1: Sign up the user with Supabase Auth
+      // Step 1: Sign up the user with Supabase Auth with all metadata needed for profile creation
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            name,
+            full_name: name,
             first_name: firstName, 
             last_name: lastName,
             username: username
@@ -100,8 +100,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       // Step 2: Create profile entry - separate from auth flow to avoid blocking signup
       if (data.user) {
-        // We'll use a separate function to create the profile to avoid blocking the auth flow
+        // Attempt to create profile immediately and also schedule a delayed retry
         createUserProfile(data.user.id, username, firstName, lastName);
+        
+        // Also schedule a delayed retry in case the first attempt fails due to timing issues
+        setTimeout(() => {
+          // Only retry if the user exists but still needs a profile
+          console.log("Scheduling delayed profile creation check");
+          checkAndCreateProfile(data.user?.id, username, firstName, lastName);
+        }, 2000);
       }
       
       toast.success("Compte créé avec succès! Vérifiez votre email pour confirmer.");
@@ -113,6 +120,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
   
+  // Check if profile exists and create if missing
+  const checkAndCreateProfile = async (userId?: string, username?: string, firstName?: string, lastName?: string) => {
+    if (!userId) return;
+    
+    try {
+      console.log("Checking if profile exists for:", userId);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+        
+      if (error || !data) {
+        console.log("Profile doesn't exist, creating now...");
+        createUserProfile(userId, username || '', firstName || '', lastName || '');
+      } else {
+        console.log("Profile already exists:", data);
+      }
+    } catch (err) {
+      console.error("Error checking profile:", err);
+    }
+  };
+  
   // Separate function to create user profile
   const createUserProfile = async (userId: string, username: string, firstName: string, lastName: string) => {
     try {
@@ -120,17 +150,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       // Try up to 3 times with delays between attempts
       for (let attempt = 1; attempt <= 3; attempt++) {
+        console.log(`Profile creation attempt ${attempt} for user ${userId}`);
+        
         const { error } = await supabase
           .from('profiles')
-          .upsert({
-            id: userId,
-            username,
-            first_name: firstName,
-            last_name: lastName
-          }, { 
-            onConflict: 'id',
-            ignoreDuplicates: false // update the row if it already exists
-          });
+          .upsert(
+            {
+              id: userId,
+              username,
+              first_name: firstName,
+              last_name: lastName
+            },
+            { 
+              onConflict: 'id',
+              ignoreDuplicates: false // update the row if it already exists
+            }
+          );
         
         if (!error) {
           console.log("Profile created successfully on attempt", attempt);
